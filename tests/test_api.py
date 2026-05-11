@@ -1,10 +1,11 @@
 from fastapi.testclient import TestClient
 
+from app.database import InMemoryQuizRepository
 from app.main import create_app
 
 
 def test_quiz_creation_returns_pin_and_quiz_id() -> None:
-    client = TestClient(create_app())
+    client = TestClient(create_app(quiz_repository=InMemoryQuizRepository()))
     payload = {
         "title": "Space Quiz",
         "description": "Smoke",
@@ -21,7 +22,7 @@ def test_quiz_creation_returns_pin_and_quiz_id() -> None:
 
 
 def test_pin_validation_endpoint() -> None:
-    client = TestClient(create_app())
+    client = TestClient(create_app(quiz_repository=InMemoryQuizRepository()))
     create_resp = client.post(
         "/api/quizzes",
         json={
@@ -63,14 +64,16 @@ def test_websocket_handshake_for_valid_pin() -> None:
 
 
 def test_healthcheck_reports_repository_status() -> None:
-    client = TestClient(create_app())
+    client = TestClient(create_app(quiz_repository=InMemoryQuizRepository()))
     response = client.get("/healthz")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "mongo": "up"}
 
 
 def test_upload_endpoint_saves_file_and_returns_url(tmp_path) -> None:
-    client = TestClient(create_app(uploads_dir=tmp_path))
+    client = TestClient(
+        create_app(uploads_dir=tmp_path, quiz_repository=InMemoryQuizRepository())
+    )
     file_content = b"\x89PNG\r\n\x1a\nfake-image-content"
     response = client.post(
         "/api/upload",

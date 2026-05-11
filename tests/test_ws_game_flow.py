@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.database import InMemoryQuizRepository
 from app.main import create_app
 
 
@@ -34,7 +35,7 @@ def _create_single_question_quiz(client: TestClient) -> str:
 
 
 def test_join_broadcasts_lobby_state_to_host_and_player() -> None:
-    client = TestClient(create_app())
+    client = TestClient(create_app(quiz_repository=InMemoryQuizRepository()))
     pin = _create_single_question_quiz(client)
 
     with client.websocket_connect(f"/ws/{pin}/host") as host_ws, client.websocket_connect(
@@ -54,7 +55,7 @@ def test_join_broadcasts_lobby_state_to_host_and_player() -> None:
 
 
 def test_state_transitions_lobby_question_leaderboard_finished() -> None:
-    client = TestClient(create_app())
+    client = TestClient(create_app(quiz_repository=InMemoryQuizRepository()))
     pin = _create_single_question_quiz(client)
 
     with client.websocket_connect(f"/ws/{pin}/host") as host_ws, client.websocket_connect(

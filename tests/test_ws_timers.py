@@ -2,6 +2,7 @@ import time
 
 from fastapi.testclient import TestClient
 
+from app.database import InMemoryQuizRepository
 from app.main import create_app
 
 
@@ -26,7 +27,11 @@ def _create_quiz(client: TestClient, n_questions: int = 1) -> str:
 
 def test_question_auto_transitions_to_leaderboard_after_timeout() -> None:
     # question_seconds=0 → server uses asyncio.sleep(0) only (reliable with TestClient)
-    app = create_app(question_seconds=0.0, leaderboard_seconds=10.0)
+    app = create_app(
+        question_seconds=0.0,
+        leaderboard_seconds=10.0,
+        quiz_repository=InMemoryQuizRepository(),
+    )
     client = TestClient(app)
     pin = _create_quiz(client, n_questions=1)
 
@@ -50,7 +55,11 @@ def test_question_auto_transitions_to_leaderboard_after_timeout() -> None:
 
 
 def test_leaderboard_auto_transitions_to_next_question() -> None:
-    app = create_app(question_seconds=0.0, leaderboard_seconds=0.0)
+    app = create_app(
+        question_seconds=0.0,
+        leaderboard_seconds=0.0,
+        quiz_repository=InMemoryQuizRepository(),
+    )
     client = TestClient(app)
     pin = _create_quiz(client, n_questions=2)
 
@@ -77,7 +86,11 @@ def test_leaderboard_auto_transitions_to_next_question() -> None:
 
 def test_manual_next_cancels_question_timer_task() -> None:
     # Long question timer: host triggers next manually before timeout
-    app = create_app(question_seconds=999.0, leaderboard_seconds=3.0)
+    app = create_app(
+        question_seconds=999.0,
+        leaderboard_seconds=3.0,
+        quiz_repository=InMemoryQuizRepository(),
+    )
     client = TestClient(app)
     pin = _create_quiz(client, n_questions=1)
 
