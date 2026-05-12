@@ -4,7 +4,7 @@ State transitions are delegated to the State Pattern (state layer).
 """
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from models.base_question import BaseQuestion
@@ -43,7 +43,7 @@ class GameSession:
         self._quiz: Quiz = quiz
         self._players: dict[str, Player] = {}  # connection_id -> Player
         self._current_question_index: int = 0
-        self._created_at: datetime = created_at or datetime.utcnow()
+        self._created_at: datetime = created_at or datetime.now(timezone.utc)
         self._state: "GameState | None" = initial_state
         if self._state is None:
             from state.lobby_state import LobbyState

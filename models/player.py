@@ -2,7 +2,7 @@
 Player entity: represents a participant in a game session.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ class Player:
         self._connection_id: str = connection_id
         self._nickname: str = nickname
         self._score: int = score
-        self._joined_at: datetime = joined_at or datetime.utcnow()
+        self._joined_at: datetime = joined_at or datetime.now(timezone.utc)
 
     @property
     def connection_id(self) -> str:

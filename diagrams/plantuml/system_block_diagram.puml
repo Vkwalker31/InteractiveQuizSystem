@@ -1,0 +1,49 @@
+@startuml system_block_diagram
+skinparam monochrome true
+skinparam shadowing false
+skinparam roundcorner 10
+skinparam DefaultFontName "Arial"
+skinparam componentStyle uml2
+
+left to right direction
+
+package "Блок управления контентом" {
+    [Конструктор викторин] as constructor
+    [Редактор вопросов] as editor
+    [Валидатор корректности данных] as validator
+    
+    constructor -up-> editor
+    editor -up-> validator
+}
+
+package "Блок игрового движка" {
+    [Менеджер сессий] as session_mgr
+    [Контроллер состояний] as state_ctrl
+    [Модуль расчета баллов] as calc_module
+    [Центр синхронизации данных] as sync_center
+    
+    session_mgr -up-> state_ctrl
+    state_ctrl -up-> calc_module
+    state_ctrl -down-> sync_center
+}
+
+database "Хранилище данных" {
+    folder "Архив игровых сессий" as archive
+    folder "База викторин" as quiz_db
+}
+
+package "Блок доступа участников" {
+    [Вход по PIN-коду] as pin_login
+    [Игровой интерфейс] as game_ui
+    [Личный результат игрока] as player_result
+    
+    pin_login -up-> game_ui
+    game_ui -up-> player_result
+}
+
+validator -down-> quiz_db : сохранение
+calc_module -right-> archive : статистика
+quiz_db -left-> session_mgr : загрузка
+sync_center <-> game_ui : WebSocket
+
+@enduml

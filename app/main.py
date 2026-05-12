@@ -3,10 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import asyncio
-import os
 import time
 import uuid
-from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,8 +23,7 @@ from app.models import (
     build_state_payload,
     parse_client_event,
 )
-from app.database import InMemoryQuizRepository, MongoQuizRepository, QuizDefinitionRepository
-from repository.mongo_database import MongoDatabase
+from app.database import InMemoryQuizRepository, QuizDefinitionRepository
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,41 +43,7 @@ def create_app(
 ) -> FastAPI:
     if now_provider is None:
         now_provider = time.time
-
-    @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        if quiz_repository is not None:
-            app.state.quiz_repo = quiz_repository
-            logger.info("Quiz repository: injected (tests or custom)")
-        else:
-            uri = os.environ.get("MONGODB_URI") or os.environ.get(
-                "MONGO_URI", "mongodb://127.0.0.1:27017"
-            )
-            db_name = os.environ.get("MONGODB_DATABASE", "quiz_system")
-            try:
-                mongo = MongoDatabase.get_instance()
-                mongo.connect(uri=uri, database_name=db_name)
-                repo = MongoQuizRepository(mongo.get_database())
-                if await repo.ping():
-                    app.state.quiz_repo = repo
-                    logger.info("Quiz repository: MongoDB (%s, db=%s)", uri, db_name)
-                else:
-                    app.state.quiz_repo = InMemoryQuizRepository()
-                    logger.warning(
-                        "MongoDB ping failed; using in-memory quiz repository (host list will be empty unless you create quizzes in this process)"
-                    )
-            except Exception:
-                logger.exception(
-                    "MongoDB connection failed; using in-memory quiz repository"
-                )
-                app.state.quiz_repo = InMemoryQuizRepository()
-        yield
-        try:
-            MongoDatabase.get_instance().close()
-        except Exception:
-            logger.debug("mongo close suppressed", exc_info=True)
-
-    app = FastAPI(title="Interactive Quiz System", lifespan=lifespan)
+    app = FastAPI(title="Interactive Quiz System")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -97,9 +60,8 @@ def create_app(
     upload_root.mkdir(parents=True, exist_ok=True)
 
     app.state.runtime = RuntimeStore()
-    # Исправлено: убрана аннотация типа для атрибута объекта, чтобы не было ошибки Pylance
-    app.state.connections = {}
-    # quiz_repo is set in lifespan (MongoDB by default, or inject InMemory for tests)
+    app.state.connections = {} 
+    app.state.quiz_repo = quiz_repository or InMemoryQuizRepository()
 
     @app.get("/healthz")
     async def healthz() -> JSONResponse:

@@ -2,7 +2,7 @@
 Quiz entity: aggregates questions and metadata.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from models.base_question import BaseQuestion
@@ -39,7 +39,7 @@ class Quiz:
         self._title: str = title
         self._description: str = description
         self._questions: list[BaseQuestion] = list(questions)
-        self._created_at: datetime = created_at or datetime.utcnow()
+        self._created_at: datetime = created_at or datetime.now(timezone.utc)
 
     @property
     def quiz_id(self) -> str | None:
