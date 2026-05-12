@@ -1,0 +1,62 @@
+@startuml figure_2_4_clean_architecture_components
+skinparam monochrome true
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam Padding 3
+skinparam nodesep 8
+skinparam ranksep 10
+skinparam component {
+  BackgroundColor White
+  BorderColor Black
+  FontSize 10
+}
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontSize 10
+}
+skinparam ArrowFontSize 9
+
+top to bottom direction
+
+package "Слой 4 · драйверы" {
+  [FastAPI] as F1
+  [MongoDB] as F2
+  [WebSockets] as F3
+}
+
+package "Слой 3 · адаптеры" {
+  [Controllers] as A1
+  [QuizRepository] as A2
+  [QuestionMapper] as A3
+}
+
+package "Слой 2 · сценарии" {
+  [QuizCreatorService] as U1
+  [GameManager] as U2
+}
+
+package "Слой 1 · сущности" {
+  [Quiz] as E1
+  [GameSession] as E2
+  [Question] as E3
+}
+
+F1 ..> A1
+F2 ..> A2
+F3 ..> A1
+
+A1 ..> U1
+A1 ..> U2
+A2 ..> E1
+A3 ..> E3
+
+U1 ..> E1
+U2 ..> E2
+U2 ..> E3
+
+note bottom of E3
+  зависимости направлены к ядру
+end note
+
+@enduml

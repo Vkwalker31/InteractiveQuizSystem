@@ -1,0 +1,34 @@
+@startuml figure_2_3_sequence_websocket_observer
+skinparam monochrome true
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam Padding 4
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ParticipantBackgroundColor White
+  ActorBackgroundColor White
+  ParticipantFontSize 10
+  MessageFontSize 9
+}
+hide footbox
+
+participant GS as "GameSession\n<<Subject>>"
+participant CM as "ConnectionManager\n<<Observer>>"
+participant C as "WebSocketClient\n(клиенты)"
+
+GS -> GS : событие домена\n(напр. таймер)
+GS -> CM : broadcast(data)
+activate CM
+loop каждое соединение
+  CM -> C : await send_text(JSON)
+  activate C
+  C --> CM
+  deactivate C
+end
+note right of CM
+  asyncio: последовательные
+  await по сокетам
+end note
+deactivate CM
+
+@enduml

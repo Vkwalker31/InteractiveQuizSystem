@@ -1,0 +1,29 @@
+@startuml figure_2_1_state_game_cycle
+skinparam monochrome true
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam Padding 5
+skinparam nodesep 22
+skinparam ranksep 18
+skinparam state {
+  BackgroundColor White
+  BorderColor Black
+  FontSize 11
+}
+skinparam ArrowFontSize 9
+
+left to right direction
+
+[*] --> Lobby
+state Lobby as "LobbyState\nожидание игроков"
+state Q as "QuestionState\nактивный вопрос"
+state LB as "LeaderboardState\nрейтинг"
+state Fin as "FinishedState\nподиум"
+
+Lobby --> Q : старт или\nтаймер лобби
+Q --> LB : таймер вопроса\nили все ответили
+LB --> Q : следующий вопрос\nтаймер или «далее»
+LB --> Fin : вопросы\nисчерпаны
+Fin --> [*]
+
+@enduml

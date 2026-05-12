@@ -1,0 +1,50 @@
+@startuml figure_2_2_repository_data_layer
+skinparam monochrome true
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam Padding 4
+skinparam nodesep 10
+skinparam ranksep 12
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  FontSize 10
+  AttributeFontSize 9
+}
+skinparam ArrowFontSize 9
+
+left to right direction
+
+class MongoDatabase <<Singleton>> {
+  +get_instance()
+  +connect()
+  +get_database()
+}
+
+class QuizRepository {
+  +find_by_id()
+  +insert()
+  +find_all()
+}
+
+class QuestionMapper <<Factory>> {
+  +to_domain()
+  +to_dict()
+}
+
+abstract class Question {
+  {abstract} +validate_answer()
+  {abstract} +to_mappable_dict()
+}
+
+class ChoiceQuestion
+class TrueFalseQuestion
+
+MongoDatabase <.. QuizRepository
+QuizRepository *-- QuestionMapper
+QuestionMapper ..> Question : to_domain
+ChoiceQuestion --|> Question
+TrueFalseQuestion --|> Question
+
+
+@enduml
