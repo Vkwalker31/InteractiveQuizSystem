@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: quiz-web
+    env: docker
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: MONGODB_URI
+        fromDatabase:
+          name: quiz-db
+          property: connectionString
+      - key: MONGODB_DATABASE
+        value: quiz_system
+
+databases:
+  - name: quiz-db
+    databaseName: quiz_system
+    user: quiz_user
+

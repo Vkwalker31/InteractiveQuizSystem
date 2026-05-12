@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  quiz-db:
+    image: mongo:latest
+    container_name: quiz-db
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+
+  quiz-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: quiz-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      quiz-db:
+        condition: service_healthy
+    volumes:
+      - ./static/uploads:/app/static/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: quiz-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://quiz-web:8000
+    depends_on:
+      quiz-web:
+        condition: service_healthy
+
+volumes:
+  mongodb_data:
+
