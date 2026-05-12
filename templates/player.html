@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Join Quiz{% endblock %}
+{% block content %}
+<main id="player-root" class="screen active">
+    <section class="glass-card" id="join-panel">
+        <h1>Join Session</h1>
+        <input id="join-pin" class="input" maxlength="6" placeholder="PIN">
+        <input id="join-name" class="input" placeholder="Nickname">
+        <button id="join-btn" class="btn">Connect</button>
+        <p class="muted">Share link with PIN query supported.</p>
+    </section>
+    <section class="glass-card hidden" id="game-panel">
+        <h2 id="player-header">Connected Successfully</h2>
+        <div id="state-stage" class="state-stage">
+            <div id="answer-wait-overlay" class="answer-overlay hidden">Answer accepted! Waiting for others...</div>
+            <p id="question-text" class="question-text hidden"></p>
+            <div id="question-options" class="options-grid hidden"></div>
+            <div id="leaderboard-self" class="leaderboard-self hidden"></div>
+        </div>
+        <div id="question-media" class="hidden" style="margin-bottom: 0.8rem;">
+            <img id="question-image" class="question-image" alt="Question image">
+        </div>
+        <div class="timer-shell"><div id="timer-bar" class="timer-bar"></div></div>
+        <p id="status-text" class="muted"></p>
+        <div id="game-over" class="hidden game-over-wrap">
+            <h3 class="game-over-title">Game Over</h3>
+            <div id="podium" class="podium"></div>
+            <button type="button" id="back-home" class="btn btn-podium-home">BACK TO HOME</button>
+        </div>
+    </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+import { SocketClient } from "/static/js/modules/SocketClient.js";
+import { UIManager } from "/static/js/modules/UIManager.js";
+import { GameEngine } from "/static/js/modules/GameEngine.js";
+
+const ui = new UIManager({ mode: "player" });
+const params = new URLSearchParams(window.location.search);
+const pinInput = document.getElementById("join-pin");
+const nameInput = document.getElementById("join-name");
+const joinBtn = document.getElementById("join-btn");
+
+if (params.get("pin")) {
+    pinInput.value = params.get("pin");
+    nameInput.focus();
+}
+
+joinBtn.addEventListener("click", () => {
+    const pin = pinInput.value.trim();
+    const name = nameInput.value.trim() || "Player";
+    if (!pin) {
+        window.showToast("PIN is required", "error");
+        return;
+    }
+    sessionStorage.setItem("pin", pin);
+    const ws = new SocketClient({ pin, clientId: `p-${Date.now()}` });
+    const engine = new GameEngine({ ui, ws, mode: "player", nickname: name });
+    engine.start();
+});
+
+document.getElementById("back-home").addEventListener("click", () => {
+    const pin = sessionStorage.getItem("pin");
+    if (pin) {
+        fetch(`/api/sessions/${encodeURIComponent(pin)}/close`, { method: "POST" }).catch(() => {});
+    }
+    sessionStorage.clear();
+    localStorage.clear();
+    window.location.href = "/";
+});
+</script>
+{% endblock %}
+

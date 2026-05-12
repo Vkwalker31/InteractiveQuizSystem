@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Host Game{% endblock %}
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+{% endblock %}
+{% block content %}
+<main id="host-root" class="screen active host-screen" data-pin="{{ pin }}">
+    <section class="glass-card host-card">
+        <div class="row" style="justify-content:space-between;">
+            <a class="host-link" href="/host">← Back to Home</a>
+        </div>
+
+        <div id="host-view-lobby">
+            <h1>Lobby</h1>
+            <div class="pin-box" id="host-pin">{{ pin }}</div>
+            <div id="qr-box" class="qr-box"></div>
+            <ul id="player-list" class="player-list"></ul>
+        </div>
+
+        <div id="host-view-question" class="hidden">
+            <h2 id="host-q-text" class="kahoot-question-title"></h2>
+            <div id="host-q-image-wrap" class="hidden" style="margin:0 0 1rem;">
+                <img id="host-q-image" alt="" style="max-width:100%; border-radius:12px;">
+            </div>
+            <div id="host-options" class="host-options-grid"></div>
+        </div>
+
+        <div id="host-view-leaderboard" class="hidden">
+            <h2 class="kahoot-question-title">Leaderboard</h2>
+            <table class="lb-table" id="host-lb-table">
+                <thead>
+                    <tr><th>Nickname</th><th>Score</th></tr>
+                </thead>
+                <tbody id="host-lb-body"></tbody>
+            </table>
+        </div>
+
+        <div id="host-view-finished" class="hidden">
+            <h2 class="kahoot-question-title">Final Podium</h2>
+            <div id="podium-host" class="podium"></div>
+            <button type="button" id="host-back-menu" class="btn btn-podium-home">BACK TO HOST MENU</button>
+        </div>
+
+        <div class="host-actions">
+            <button type="button" id="host-next" class="btn" disabled>Start Game</button>
+        </div>
+    </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+import { SocketClient } from "/static/js/modules/SocketClient.js";
+import { UIManager } from "/static/js/modules/UIManager.js";
+import { GameEngine } from "/static/js/modules/GameEngine.js";
+
+const root = document.getElementById("host-root");
+const pin = root.dataset.pin;
+const ui = new UIManager({ mode: "host" });
+const ws = new SocketClient({ pin, clientId: "host" });
+const engine = new GameEngine({ ui, ws, mode: "host" });
+
+if (window.QRCode) {
+    new QRCode(document.getElementById("qr-box"), {
+        text: `${window.location.origin}/?pin=${encodeURIComponent(pin)}`,
+        width: 150,
+        height: 150
+    });
+}
+
+engine.start();
+</script>
+{% endblock %}
