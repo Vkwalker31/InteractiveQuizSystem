@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Create Quiz{% endblock %}
+{% block content %}
+<main class="screen active">
+    <section class="glass-card">
+        <div class="row" style="justify-content:space-between; margin-bottom:.7rem;">
+            <h1 style="margin:0;">Create Quiz</h1>
+            <a class="host-link" href="/host">← Back</a>
+        </div>
+        <input id="quiz-title" class="input" placeholder="Quiz title">
+        <input id="quiz-description" class="input" placeholder="Description (optional)">
+        <div id="questions"></div>
+        <div class="row">
+            <button id="add-question" class="btn" type="button">Add Question</button>
+            <button id="save-quiz" class="btn" type="button">Save</button>
+        </div>
+    </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+const questionsEl = document.getElementById("questions");
+const addBtn = document.getElementById("add-question");
+const saveBtn = document.getElementById("save-quiz");
+const titleEl = document.getElementById("quiz-title");
+const descEl = document.getElementById("quiz-description");
+const params = new URLSearchParams(window.location.search);
+const editId = params.get("edit");
+
+function renderQuestion(index) {
+    const wrap = document.createElement("div");
+    wrap.className = "glass-card";
+    wrap.style.marginBottom = ".7rem";
+    wrap.innerHTML = `
+        <h3 style="margin:0 0 .5rem;">Question ${index + 1}</h3>
+        <input class="input q-text" placeholder="Question text">
+        <input class="input q-opt" placeholder="Option 1">
+        <input class="input q-opt" placeholder="Option 2">
+        <input class="input q-opt" placeholder="Option 3">
+        <input class="input q-opt" placeholder="Option 4">
+        <input class="input q-image" placeholder="Image URL (optional)">
+        <input class="input q-correct" type="number" min="0" max="3" value="0" placeholder="Correct option index 0..3">
+    `;
+    questionsEl.appendChild(wrap);
+}
+
+addBtn.addEventListener("click", () => renderQuestion(questionsEl.children.length));
+
+function fillQuestion(node, q, index) {
+    node.querySelector("h3").textContent = `Question ${index + 1}`;
+    node.querySelector(".q-text").value = q.text || "";
+    const opts = (q.options || []).slice(0, 4);
+    node.querySelectorAll(".q-opt").forEach((el, i) => {
+        el.value = opts[i] || "";
+    });
+    node.querySelector(".q-image").value = q.image_url || "";
+    node.querySelector(".q-correct").value = String(
+        Number.isFinite(q.correct_index) ? q.correct_index : 0
+    );
+}
+
+async function loadForEdit() {
+    if (!editId) {
+        renderQuestion(0);
+        return;
+    }
+    const resp = await fetch(`/api/quizzes/${encodeURIComponent(editId)}`);
+    const data = await resp.json();
+    if (!resp.ok || !data.found) {
+        window.showToast("Quiz not found", "error");
+        renderQuestion(0);
+        return;
+    }
+    const quiz = data.quiz || {};
+    titleEl.value = quiz.title || "";
+    descEl.value = quiz.description || "";
+    questionsEl.innerHTML = "";
+    const qs = Array.isArray(quiz.questions) ? quiz.questions : [];
+    if (!qs.length) {
+        renderQuestion(0);
+        return;
+    }
+    qs.forEach((q, idx) => {
+        renderQuestion(idx);
+        fillQuestion(questionsEl.children[idx], q, idx);
+    });
+    document.querySelector("h1").textContent = "Edit Quiz";
+}
+
+loadForEdit();
+
+saveBtn.addEventListener("click", async () => {
+    const title = titleEl.value.trim();
+    const description = descEl.value.trim();
+    if (!title) {
+        window.showToast("Quiz title is required", "error");
+        return;
+    }
+    const questions = [...questionsEl.children].map((node) => {
+        const text = node.querySelector(".q-text").value.trim();
+        const options = [...node.querySelectorAll(".q-opt")].map((opt) => opt.value.trim());
+        const correctIndex = Number(node.querySelector(".q-correct").value);
+        const imageUrl = node.querySelector(".q-image").value.trim();
+        return {
+            text,
+            options,
+            correct_index: Number.isFinite(correctIndex) ? correctIndex : 0,
+            image_url: imageUrl || null,
+        };
+    }).filter((q) => q.text && q.options.filter(Boolean).length >= 2);
+
+    if (!questions.length) {
+        window.showToast("Add at least one valid question", "error");
+        return;
+    }
+
+    const normalized = questions.map((q) => ({
+        text: q.text,
+        options: q.options.map((o) => o || "").slice(0, 4),
+        correct_index: Math.max(0, Math.min(3, q.correct_index)),
+        image_url: q.image_url,
+    }));
+
+    const url = editId ? `/api/quizzes/${encodeURIComponent(editId)}` : "/api/quizzes";
+    const method = editId ? "PUT" : "POST";
+    const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description, questions: normalized }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        window.showToast(data.detail || data.error || "Failed to save quiz", "error");
+        return;
+    }
+    window.showToast(editId ? "Quiz updated" : "Quiz saved", "success");
+    window.location.href = "/host";
+});
+</script>
+{% endblock %}

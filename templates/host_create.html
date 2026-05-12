@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Host Home{% endblock %}
+{% block content %}
+<main class="screen active">
+    <section class="glass-card">
+        <h1>Host Console</h1>
+        <p class="muted">Create custom quizzes, choose existing ones, and launch host sessions.</p>
+        <div class="row" style="margin-bottom:.8rem;">
+            <a class="btn" href="/host/quiz/new">Create Quiz</a>
+        </div>
+        <div id="session-output" class="empty-state">
+            <div class="icon">🚀</div>
+            <p>No session started yet.</p>
+        </div>
+        <h3 style="margin-top:1rem;">Saved Quizzes</h3>
+        <div id="quiz-list" class="player-list"></div>
+    </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+    const out = document.getElementById("session-output");
+
+    async function loadQuizzes() {
+        const list = document.getElementById("quiz-list");
+        let data;
+        try {
+            const response = await fetch("/api/quizzes");
+            if (!response.ok) {
+                const errText = await response.text();
+                let detail = errText;
+                try {
+                    const errJson = JSON.parse(errText);
+                    detail = errJson.detail || errJson.error || errText;
+                } catch (_) { /* use raw */ }
+                list.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load quizzes (${response.status}).</p><p class="muted" style="font-size:0.85rem;">${String(detail).slice(0, 200)}</p></div>`;
+                return;
+            }
+            data = await response.json();
+        } catch (e) {
+            list.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Network error loading quizzes.</p><p class="muted" style="font-size:0.85rem;">${e && e.message ? e.message : e}</p></div>`;
+            return;
+        }
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (!items.length) {
+            list.innerHTML = `<div class="empty-state"><div class="icon">🗂️</div><p>No saved quizzes yet.</p></div>`;
+            return;
+        }
+        list.innerHTML = items.map((item) => `
+            <div class="glass-card" style="margin-bottom:.6rem;">
+                <h4 style="margin:0 0 .35rem;">${item.title}</h4>
+                <p class="muted" style="margin:0 0 .55rem;">${item.description || "No description"} · Questions: ${item.question_count}</p>
+                <div class="row" style="justify-content:space-between; gap:.5rem; flex-wrap:wrap;">
+                    <button class="btn btn-start" data-quiz-id="${item.quiz_id}">Start Session</button>
+                    <button class="btn btn-secondary btn-edit" data-quiz-id="${item.quiz_id}">Edit</button>
+                    <button class="btn btn-danger btn-delete" data-quiz-id="${item.quiz_id}">Delete</button>
+                </div>
+            </div>
+        `).join("");
+
+        list.querySelectorAll(".btn-start").forEach((node) => {
+            node.addEventListener("click", async () => {
+                const quizId = node.dataset.quizId;
+                const startResp = await fetch(`/api/quizzes/${quizId}/sessions`, { method: "POST" });
+                const startData = await startResp.json();
+                if (!startResp.ok) {
+                    window.showToast("Failed to start session", "error");
+                    return;
+                }
+                out.innerHTML = `<p>PIN: <strong>${startData.pin}</strong></p><p><a class="host-link" href="/host/game/${startData.pin}">Open host screen</a></p>`;
+                window.showToast("Session started", "success");
+            });
+        });
+
+        list.querySelectorAll(".btn-edit").forEach((node) => {
+            node.addEventListener("click", () => {
+                const quizId = node.dataset.quizId;
+                window.location.href = `/host/quiz/new?edit=${encodeURIComponent(quizId)}`;
+            });
+        });
+
+        list.querySelectorAll(".btn-delete").forEach((node) => {
+            node.addEventListener("click", async () => {
+                const quizId = node.dataset.quizId;
+                const ok = window.confirm("Delete this quiz? This cannot be undone.");
+                if (!ok) return;
+                const delResp = await fetch(`/api/quizzes/${quizId}`, { method: "DELETE" });
+                const delData = await delResp.json().catch(() => ({}));
+                if (!delResp.ok) {
+                    window.showToast(delData.detail || delData.error || "Failed to delete quiz", "error");
+                    return;
+                }
+                window.showToast("Quiz deleted", "success");
+                loadQuizzes();
+            });
+        });
+    }
+
+    loadQuizzes();
+</script>
+{% endblock %}
+
