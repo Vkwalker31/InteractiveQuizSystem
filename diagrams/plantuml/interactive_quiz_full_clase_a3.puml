@@ -1,0 +1,182 @@
+@startuml "Interactive_Quiz_Professional_Ortho"
+
+' --- Настройки идеально ровных стрелок и компоновки ---
+left to right direction
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam padding 5
+skinparam packagePadding 15
+skinparam shadowing false
+skinparam roundcorner 5
+
+' Цветовая схема сохранена
+skinparam package {
+    BackgroundColor<<Frontend>> #E1F5FE
+    BackgroundColor<<Web>> #F3E5F5
+    BackgroundColor<<Domain>> #FFF3E0
+    BackgroundColor<<Infra>> #E8F5E9
+}
+
+' ==========================================
+' LAYER 1: FRONTEND (JAVASCRIPT)
+' ==========================================
+package "Frontend Layer (Client-Side JS)" <<Frontend>> {
+    class GameEngine {
+        - ui: UIManager
+        - ws: SocketClient
+        - mode: "host" | "player"
+        - nickname: string
+        - currentState: GameStateEnum
+        - clientId: UUID
+        + start(): void
+        + handleMessage(msg: Object): void
+        - handleHostAction(action: string): void
+        - processLeaderboard(data: List): void
+    }
+
+    class SocketClient {
+        - socket: WebSocket
+        - url: string
+        + connect(pin: string, cid: UUID): void
+        + send(payload: dict): void
+        + onMessage(callback: Function): void
+        + onClose(handler: Function): void
+    }
+
+    class UIManager {
+        - containers: Dict[string, HTMLElement]
+        + renderQuestion(data: QuestionData): void
+        + updateTimer(seconds: int): void
+        + showPodium(winners: List): void
+        + toggleOverlay(visible: boolean): void
+        + animateScorePopUp(amount: int): void
+    }
+
+    GameEngine *-- SocketClient : "Управляет"
+    GameEngine *-- UIManager : "Обновляет"
+}
+
+' ==========================================
+' LAYER 2: WEB API (FASTAPI)
+' ==========================================
+package "Web & Communication (FastAPI)" <<Web>> {
+    class FastAPI_App {
+        + app: FastAPI
+        - middleware: CORSMiddleware
+        + websocket_endpoint(pin: str, client_id: str): Task
+        + create_quiz(data: QuizCreate): JSON
+        + get_active_sessions(): List[dict]
+        + handle_file_upload(file: UploadFile): dict
+    }
+
+    class ConnectionManager {
+        - active_connections: Dict[str, Dict[str, WebSocket]]
+        + connect(pin: str, client_id: str, ws: WebSocket): void
+        + disconnect(pin: str, client_id: str): void
+        + broadcast(pin: str, message: dict): Task
+        + send_personal(client_id: str, message: dict): Task
+    }
+
+    FastAPI_App --> ConnectionManager
+}
+
+' ==========================================
+' LAYER 3: DOMAIN & LOGIC (CORE)
+' ==========================================
+package "Domain & Logic (Core)" <<Domain>> {
+    class SessionState <<Dataclass>> {
+        + pin: string
+        + quiz_id: UUID
+        + status: GamePhase
+        + players: Dict[str, str]
+        + scores: Dict[str, int]
+        + question_index: int
+        + question_started_at: float
+        + timer_task: asyncio.Task
+        + answered_players: Set[str]
+    }
+
+    class RuntimeStore {
+        - sessions: Dict[str, SessionState]
+        + create_session(quiz: Quiz): SessionState
+        + get_session(pin: str): SessionState
+        + delete_session(pin: str): bool
+        - generate_unique_pin(): str
+    }
+
+    class ScoreCalculator <<Static>> {
+        {static} + BASE_POINTS: int = 1000
+        {static} + TIME_LIMIT: int = 15
+        {static} + calculate(elapsed: float): int
+    }
+
+    enum GamePhase {
+        LOBBY
+        QUESTION
+        LEADERBOARD
+        FINISHED
+    }
+
+    RuntimeStore "1" *-- "*" SessionState
+    SessionState o-- GamePhase
+}
+
+' ==========================================
+' LAYER 4: DATA MODELS (SCHEMAS)
+' ==========================================
+package "Data Schemas (Pydantic)" <<Domain>> {
+    class Quiz {
+        + id: UUID
+        + title: str
+        + description: str
+        + questions: List[Question]
+    }
+
+    class Question {
+        + text: str
+        + options: List[str]
+        + correct_index: int
+        + image_url: Optional[str]
+    }
+
+    Quiz *-- "*" Question
+}
+
+' ==========================================
+' LAYER 5: INFRASTRUCTURE (DB)
+' ==========================================
+package "Infrastructure (Persistence)" <<Infra>> {
+    interface QuizRepository {
+        + get_by_id(id: str): Quiz
+        + save(quiz: Quiz): str
+        + list_all(): List[Quiz]
+        + delete(id: str): bool
+    }
+
+    class MongoQuizRepository {
+        - client: AsyncIOMotorClient
+        - db: MotorDatabase
+        + ping_db(): bool
+    }
+
+    class MongoDatabase <<Singleton>> {
+        - instance: MongoDatabase
+        + get_db(): MotorDatabase
+        + close_connection(): void
+    }
+
+    QuizRepository <|-- MongoQuizRepository
+    MongoQuizRepository --> MongoDatabase
+}
+
+FastAPI_App ---> RuntimeStore
+FastAPI_App ---> QuizRepository
+SessionState ..> ScoreCalculator
+SessionState o- Quiz
+GameEngine ..[#blue]---> FastAPI_App : "WebSocket Protocol"
+
+note left of ScoreCalculator : floor(1000 * (1 - t/15))
+note top of ConnectionManager : WS Broadcast Manager
+
+@enduml
